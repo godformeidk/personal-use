@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마감 분량 계산기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --paper: #faf6ee;
+    --cream: #f0e8d6;
+    --rust: #c0392b;
+    --gold: #d4a017;
+    --sage: #4a7c59;
+    --sage-light: #e8f0ea;
+    --warn: #e67e22;
+    --warn-light: #fdf0e3;
+    --progress-bg: #e8e0d0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Serif KR', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(
+        transparent,
+        transparent 31px,
+        #e8e0cf 31px,
+        #e8e0cf 32px
+      );
+    background-attachment: fixed;
+  }
+
+  header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 28px 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 4px solid var(--gold);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 {
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  header .subtitle {
+    font-size: 0.8rem;
+    font-weight: 300;
+    opacity: 0.6;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .clock {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Input card */
+  .input-card {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+
+  .input-card h2 {
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-card h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--cream);
+  }
+
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 560px) {
+    .input-grid { grid-template-columns: 1fr; }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #555;
+  }
+
+  .field input, .field select {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1.05rem;
+    border: 1.5px solid #ccc;
+    border-radius: 2px;
+    padding: 10px 14px;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--ink);
+    background: white;
+  }
+
+  .field.full { grid-column: 1 / -1; }
+
+  .field-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .field-row .field { flex: 1; }
+
+  .field-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1.5px solid #ccc;
+    border-radius: 2px;
+    padding: 10px 14px;
+    background: var(--paper);
+    font-size: 1.05rem;
+  }
+
+  .field-inline input {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: 1.05rem;
+    width: 100%;
+    outline: none;
+    color: var(--ink);
+  }
+
+  .field-inline span {
+    font-size: 0.8rem;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  .hint {
+    font-size: 0.72rem;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  /* today progress */
+  .today-written-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .today-written-row input {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1.05rem;
+    border: 1.5px solid #ccc;
+    border-radius: 2px;
+    padding: 10px 14px;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    width: 140px;
+    transition: border-color 0.2s;
+  }
+
+  .today-written-row input:focus { border-color: var(--ink); background: white; }
+  .today-written-row span { font-size: 0.82rem; color: #777; }
+
+  /* Result area */
+  .result-area { display: none; }
+  .result-area.visible { display: block; }
+
+  /* Status banner */
+  .status-banner {
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+
+  .status-banner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+  }
+
+  .status-banner.safe { background: var(--sage-light); }
+  .status-banner.safe::before { background: var(--sage); }
+
+  .status-banner.warn { background: var(--warn-light); }
+  .status-banner.warn::before { background: var(--warn); }
+
+  .status-banner.danger { background: #fce8e6; }
+  .status-banner.danger::before { background: var(--rust); }
+
+  .status-emoji {
+    font-size: 2.4rem;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .status-main {
+    font-size: 1.05rem;
+    font-weight: 400;
+    color: #444;
+    margin-bottom: 8px;
+  }
+
+  .status-highlight {
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .status-banner.safe .status-highlight { color: var(--sage); }
+  .status-banner.warn .status-highlight { color: var(--warn); }
+  .status-banner.danger .status-highlight { color: var(--rust); }
+
+  .status-sub {
+    font-size: 0.82rem;
+    color: #777;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .dday-badge {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 1px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 500px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .stat-card {
+    background: white;
+    border: 1.5px solid #ddd;
+    border-radius: 2px;
+    padding: 18px 16px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .stat-unit {
+    font-size: 0.72rem;
+    color: #aaa;
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Progress bar */
+  .progress-section {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .progress-title {
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .progress-pct {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .progress-track {
+    background: var(--progress-bg);
+    height: 20px;
+    border-radius: 1px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--sage);
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .progress-fill.warn { background: var(--warn); }
+  .progress-fill.danger { background: var(--rust); }
+
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: #bbb;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Day table */
+  .schedule-section {
+    background: white;
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 4px 4px 0 var(--ink);
+    margin-bottom: 24px;
+  }
+
+  .schedule-header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 24px;
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #999;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--cream);
+    background: var(--paper);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f0ebe0;
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--paper); }
+  tbody tr.today-row { background: #fffce8; }
+
+  tbody td {
+    padding: 12px 16px;
+    font-size: 0.88rem;
+  }
+
+  td.day-num {
+    font-family: 'DM Mono', monospace;
+    color: #bbb;
+    font-size: 0.75rem;
+  }
+
+  td.day-date { font-weight: 600; }
+  td.day-date .weekend { color: var(--rust); }
+
+  td.day-amount {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  td.day-cumulative {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+
+  td.day-status { font-size: 0.85rem; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 1px;
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  .badge.done { background: var(--sage-light); color: var(--sage); }
+  .badge.today { background: var(--gold); color: white; }
+  .badge.future { background: var(--cream); color: #999; }
+  .badge.off { background: #f0f0f0; color: #bbb; }
+
+  /* Modes row */
+  .modes-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .mode-card {
+    border: 1.5px solid #ddd;
+    border-radius: 2px;
+    padding: 16px;
+    text-align: center;
+    cursor: default;
+  }
+
+  .mode-card.active {
+    border-color: var(--ink);
+    border-width: 2px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  .mode-card.active.safe { background: var(--sage-light); }
+  .mode-card.active.warn { background: var(--warn-light); }
+
+  .mode-icon { font-size: 1.4rem; margin-bottom: 4px; }
+  .mode-name { font-size: 0.7rem; font-family: 'DM Mono', monospace; color: #888; margin-bottom: 6px; letter-spacing: 0.06em; }
+  .mode-amount { font-size: 1.1rem; font-weight: 900; color: var(--ink); }
+  .mode-unit { font-size: 0.68rem; color: #bbb; }
+
+  /* Calc button */
+  .calc-btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 2px;
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    box-shadow: 4px 4px 0 var(--gold);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+
+  .calc-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--gold);
+  }
+
+  .calc-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--gold);
+  }
+
+  /* Animations */
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-area.visible > * {
+    animation: slideIn 0.4s ease backwards;
+  }
+
+  .result-area.visible > *:nth-child(2) { animation-delay: 0.07s; }
+  .result-area.visible > *:nth-child(3) { animation-delay: 0.14s; }
+  .result-area.visible > *:nth-child(4) { animation-delay: 0.21s; }
+  .result-area.visible > *:nth-child(5) { animation-delay: 0.28s; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--cream); }
+  ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✍ 마감 계산기</h1>
+  <span class="subtitle">writing deadline tracker</span>
+  <div class="clock" id="clock"></div>
+</header>
+
+<main>
+  <div class="input-card">
+    <h2>📋 작업 설정</h2>
+    <div class="input-grid">
+      <div class="field">
+        <label>마감 날짜</label>
+        <input type="date" id="deadline" />
+      </div>
+      <div class="field">
+        <label>단위</label>
+        <select id="unit">
+          <option value="글자">글자 (자)</option>
+          <option value="원고지">원고지 (매)</option>
+          <option value="페이지">페이지</option>
+          <option value="단어">단어 (word)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>총 목표 분량</label>
+        <div class="field-inline">
+          <input type="number" id="total" placeholder="ex) 40000" min="1" />
+          <span id="unitLabel">글자</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>휴일 수 <span class="hint">(마감일 제외, 쉬는 날)</span></label>
+        <div class="field-inline">
+          <input type="number" id="holidays" placeholder="0" min="0" value="0" />
+          <span>일</span>
+        </div>
+      </div>
+      <div class="field full">
+        <label>오늘까지 작성한 분량 <span class="hint">(이미 쓴 양이 있다면)</span></label>
+        <div class="today-written-row">
+          <input type="number" id="written" placeholder="0" min="0" value="0" />
+          <span id="writtenUnit">글자 작성 완료</span>
+        </div>
+      </div>
+    </div>
+    <button class="calc-btn" onclick="calculate()">📊 마감 분량 계산하기</button>
+  </div>
+
+  <!-- Result -->
+  <div class="result-area" id="result">
+
+    <div class="status-banner" id="statusBanner">
+      <div class="dday-badge" id="ddayBadge"></div>
+      <span class="status-emoji" id="statusEmoji"></span>
+      <div class="status-main" id="statusMain"></div>
+      <div class="status-highlight" id="statusHighlight"></div>
+      <div class="status-sub" id="statusSub"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">남은 분량</div>
+        <div class="stat-value" id="statRemaining"></div>
+        <div class="stat-unit" id="statRemainingUnit"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">작업 가능일</div>
+        <div class="stat-value" id="statDays"></div>
+        <div class="stat-unit">일</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">전체 완료율</div>
+        <div class="stat-value" id="statPct"></div>
+        <div class="stat-unit">%</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-header">
+        <span class="progress-title">전체 진행률</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="progress-labels">
+        <span id="progressWritten">0</span>
+        <span id="progressTotal">0</span>
+      </div>
+    </div>
+
+    <div class="modes-row">
+      <div class="mode-card" id="modeMin">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-name">최소 (분량÷2)</div>
+        <div class="mode-amount" id="modeMinAmt"></div>
+        <div class="mode-unit" id="modeMinUnit"></div>
+      </div>
+      <div class="mode-card active safe" id="modeNorm">
+        <div class="mode-icon">✅</div>
+        <div class="mode-name">안심 (균등 배분)</div>
+        <div class="mode-amount" id="modeNormAmt"></div>
+        <div class="mode-unit" id="modeNormUnit"></div>
+      </div>
+      <div class="mode-card" id="modeRelax">
+        <div class="mode-icon">✨</div>
+        <div class="mode-name">여유 (80% 완료)</div>
+        <div class="mode-amount" id="modeRelaxAmt"></div>
+        <div class="mode-unit" id="modeRelaxUnit"></div>
+      </div>
+    </div>
+
+    <div class="schedule-section">
+      <div class="schedule-header">📅 일별 스케줄 (안심 플랜 기준)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>날짜</th>
+            <th>목표</th>
+            <th>누적</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('clock').textContent =
+      `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Default deadline = tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('deadline').value = tomorrow.toISOString().slice(0, 10);
+
+  // Unit label sync
+  document.getElementById('unit').addEventListener('change', function() {
+    document.getElementById('unitLabel').textContent = this.value;
+    document.getElementById('writtenUnit').textContent = this.value + ' 작성 완료';
+    document.querySelectorAll('.mode-unit, #statRemainingUnit').forEach(el => {
+      el.textContent = this.value + '/일';
+    });
+  });
+
+  function fmt(n) {
+    return Number(n).toLocaleString('ko-KR');
+  }
+
+  function calculate() {
+    const deadlineVal = document.getElementById('deadline').value;
+    const total = parseFloat(document.getElementById('total').value) || 0;
+    const holidays = parseInt(document.getElementById('holidays').value) || 0;
+    const written = parseFloat(document.getElementById('written').value) || 0;
+    const unit = document.getElementById('unit').value;
+
+    if (!deadlineVal || total <= 0) {
+      alert('마감 날짜와 총 목표 분량을 입력해주세요.');
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(deadlineVal);
+    deadline.setHours(0, 0, 0, 0);
+
+    // Days difference (including today)
+    const diffMs = deadline - today;
+    const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // inclusive of today
+    const workDays = Math.max(totalDays - holidays, 1);
+    const remaining = Math.max(total - written, 0);
+    const pct = Math.min((written / total) * 100, 100);
+
+    // Per day amounts
+    const normPerDay = Math.ceil(remaining / workDays);
+    const minPerDay = Math.ceil(normPerDay / 2);
+    // Relax: finish 80% on workDays-1 days if possible
+    const relaxDays = Math.max(workDays - 1, 1);
+    const relaxPerDay = Math.ceil(remaining / relaxDays);
+
+    // Status
+    const dday = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+    let statusClass, emoji, main, highlight, sub;
+
+    if (dday < 0) {
+      statusClass = 'danger'; emoji = '🚨';
+      main = '마감이 지났습니다!';
+      highlight = '마감 초과 ' + Math.abs(dday) + '일';
+      sub = '';
+    } else if (dday === 0) {
+      statusClass = 'danger'; emoji = '🔥';
+      main = '오늘이 마감입니다!';
+      highlight = fmt(remaining) + ' ' + unit + ' 써야 합니다';
+      sub = '남은 시간이 없습니다. 지금 당장 시작하세요!';
+    } else if (normPerDay > 5000 && unit === '글자') {
+      statusClass = 'warn'; emoji = '⚠️';
+      main = '하루 목표가 많습니다. 집중하세요!';
+      highlight = '오늘 ' + fmt(normPerDay) + ' ' + unit + ' 써야 합니다';
+      sub = `D-${dday} · 남은 분량 ${fmt(remaining)} ${unit} · 작업일 ${workDays}일`;
+    } else {
+      statusClass = 'safe'; emoji = '✅';
+      main = '마감 안심 구간입니다.';
+      highlight = '하루 ' + fmt(normPerDay) + ' ' + unit + ' 목표';
+      sub = `D-${dday} · 남은 분량 ${fmt(remaining)} ${unit} · 작업일 ${workDays}일`;
+    }
+
+    // Render status
+    const banner = document.getElementById('statusBanner');
+    banner.className = 'status-banner ' + statusClass;
+    document.getElementById('ddayBadge').textContent = dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`;
+    document.getElementById('statusEmoji').textContent = emoji;
+    document.getElementById('statusMain').textContent = main;
+    document.getElementById('statusHighlight').textContent = highlight;
+    document.getElementById('statusSub').textContent = sub;
+
+    // Stats
+    document.getElementById('statRemaining').textContent = fmt(remaining);
+    document.getElementById('statRemainingUnit').textContent = unit;
+    document.getElementById('statDays').textContent = workDays;
+    document.getElementById('statPct').textContent = pct.toFixed(1);
+
+    // Progress
+    const fill = document.getElementById('progressFill');
+    document.getElementById('progressPct').textContent = pct.toFixed(1) + '%';
+    fill.style.width = pct + '%';
+    fill.className = 'progress-fill' + (pct < 30 ? ' danger' : pct < 60 ? ' warn' : '');
+    document.getElementById('progressWritten').textContent = fmt(written) + ' ' + unit;
+    document.getElementById('progressTotal').textContent = fmt(total) + ' ' + unit;
+
+    // Modes
+    document.getElementById('modeMinAmt').textContent = fmt(minPerDay);
+    document.getElementById('modeNormAmt').textContent = fmt(normPerDay);
+    document.getElementById('modeRelaxAmt').textContent = fmt(relaxPerDay);
+    document.querySelectorAll('#modeMinAmt, #modeNormAmt, #modeRelaxAmt').forEach(() => {});
+    const uLabel = unit + '/일';
+    document.querySelector('#modeMin .mode-unit').textContent = uLabel;
+    document.querySelector('#modeNorm .mode-unit').textContent = uLabel;
+    document.querySelector('#modeRelax .mode-unit').textContent = uLabel;
+
+    // Schedule table
+    const tbody = document.getElementById('scheduleBody');
+    tbody.innerHTML = '';
+    const dayNames = ['일','월','화','수','목','금','토'];
+    const pad = n => String(n).padStart(2, '0');
+
+    let cumulative = written;
+    const workdayList = [];
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      workdayList.push(d);
+    }
+
+    // Mark holidays as last N days
+    // Simple approach: distribute holidays from the end (before deadline)
+    const holidaySet = new Set();
+    let hCount = holidays;
+    for (let i = workdayList.length - 2; i >= 0 && hCount > 0; i--) {
+      holidaySet.add(i);
+      hCount--;
+    }
+
+    let workDayIdx = 0;
+    workdayList.forEach((d, idx) => {
+      const isHoliday = holidaySet.has(idx);
+      const isToday = d.getTime() === today.getTime();
+      const isDeadline = d.getTime() === deadline.getTime();
+      const isPast = d < today;
+      const dow = d.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+
+      let dailyTarget = 0;
+      if (!isHoliday && !isPast) {
+        workDayIdx++;
+        dailyTarget = normPerDay;
+      }
+      if (isPast) dailyTarget = 0;
+
+      cumulative += isHoliday || isPast ? 0 : dailyTarget;
+
+      const tr = document.createElement('tr');
+      if (isToday) tr.className = 'today-row';
+
+      let statusBadge = '';
+      if (isHoliday) statusBadge = '<span class="badge off">휴일</span>';
+      else if (isPast) statusBadge = '<span class="badge done">완료</span>';
+      else if (isToday) statusBadge = '<span class="badge today">오늘</span>';
+      else if (isDeadline) statusBadge = '<span class="badge" style="background:#fce8e6;color:var(--rust)">마감</span>';
+      else statusBadge = '<span class="badge future">예정</span>';
+
+      tr.innerHTML = `
+        <td class="day-num">${idx + 1}</td>
+        <td class="day-date">
+          <span class="${isWeekend ? 'weekend' : ''}">${d.getMonth()+1}/${pad(d.getDate())} (${dayNames[dow]})</span>
+        </td>
+        <td class="day-amount" style="color:${isHoliday || isPast ? '#ccc' : 'var(--ink)'}">
+          ${isHoliday ? '—' : isPast ? '—' : fmt(dailyTarget) + ' ' + unit}
+        </td>
+        <td class="day-cumulative">${fmt(Math.min(cumulative, total))} / ${fmt(total)}</td>
+        <td class="day-status">${statusBadge}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Show result
+    const resultEl = document.getElementById('result');
+    resultEl.className = 'result-area visible';
+    setTimeout(() => {
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+</script>
+
+</body>
+</html>
